@@ -13,6 +13,7 @@ class TestGraphInit(unittest.TestCase):
         self.assertIsInstance(g, Graph)
         self.assertEqual(list(g.edges), [])
         self.assertEqual(list(g.nodes), [])
+        self.assertFalse(g.is_directed())
 
     def test_init_dict_dict(self):
         # test creating a Graph from dict of dicts
