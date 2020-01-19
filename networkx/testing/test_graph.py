@@ -360,9 +360,92 @@ class TestGraph(unittest.TestCase):
       self.assertEqual(g.number_of_edges(u=1, v=2), 1)
       self.assertEqual(g.number_of_edges(u=1, v=6), 0)
 
-   def test_misc(self):
-      # these just return classes to use for empty copies, and we want
-      # 100% coverage
+   def test_convert_to_digraph(self):
+      from networkx.classes.digraph import DiGraph
       g = Graph()
-      g.to_directed_class()
-      g.to_undirected_class()
+      g.add_weighted_edges_from([(1, 2, 3.14), (3, 4, 2.718)])
+
+      # create a directed version
+      directed = g.to_directed()
+      self.assertIsInstance(directed, DiGraph)
+
+      for n in g.nodes():
+         self.assertTrue(n in directed)
+      for u, v in g.edges():
+         self.assertTrue(directed.has_edge(u, v))
+         self.assertTrue(directed.has_edge(v, u))
+
+      # do the same thing again but as a view
+      directed = g.to_directed(as_view=True)
+
+      for n in g.nodes():
+         self.assertTrue(n in directed)
+      for u, v in g.edges():
+         self.assertTrue(directed.has_edge(u, v))
+         self.assertTrue(directed.has_edge(v, u))
+
+   def test_subgraph(self):
+      g = Graph()
+      g.add_edges_from([(1, 2), (2, 3), (3, 4)])
+
+      # create a subgraph and check whether all nodes and edges that
+      # should be there are there and those that shouldn't be there
+      # aren't there
+      sub = g.subgraph([1, 2])
+      self.assertTrue(sub._graph is g)
+      self.assertTrue(1 in sub.nodes())
+      self.assertTrue(2 in sub.nodes())
+      self.assertTrue(3 not in sub.nodes())
+      self.assertTrue(4 not in sub.nodes())
+      self.assertTrue((1, 2) in sub.edges())
+      self.assertTrue((2, 3) not in sub.edges())
+      self.assertTrue((3, 4) not in sub.edges())
+
+      # creating a subgraph of a subgraph shouldn't create a chain, it
+      # should say that it is just another subgraph of the original
+      # graph
+      subsub = sub.subgraph([1])
+      self.assertTrue(subsub._graph is g)
+
+      # test creating a subgraph induced from edges, otherwise do the
+      # same tests as before
+      sub = g.edge_subgraph([(1, 2)])
+      self.assertTrue(sub._graph is g)
+      self.assertTrue(1 in sub.nodes())
+      self.assertTrue(2 in sub.nodes())
+      self.assertTrue(3 not in sub.nodes())
+      self.assertTrue(4 not in sub.nodes())
+      self.assertTrue((1, 2) in sub.edges())
+      self.assertTrue((2, 3) not in sub.edges())
+      self.assertTrue((3, 4) not in sub.edges())
+
+   def test_nbunch_iter(self):
+      g = Graph()
+      g.add_edges_from([(1, 2), (2, 3), (3, 4)])
+
+      # test creating an iterator containing all nodes, one node and
+      # some nodes from the graph g
+      all_nodes = set(g.nbunch_iter())
+      self.assertEqual(all_nodes, {1, 2, 3, 4})
+
+      one_node = set(g.nbunch_iter(2))
+      self.assertEqual(one_node, {2})
+
+      some_nodes = set(g.nbunch_iter([2, 3]))
+      self.assertEqual(some_nodes, {2, 3})
+
+      # this will ignore extra nodes that doesn't exist in the graph
+      extra_nodes = set(g.nbunch_iter([2, 3, 6, 7]))
+      self.assertEqual(extra_nodes, {2, 3})
+
+      # will error if the argument isn't an iterable
+      with self.assertRaises(nx.NetworkXError):
+         list(g.nbunch_iter(lambda: 2))
+
+      # will error if an element in the iterable isn't hashable
+      with self.assertRaises(nx.NetworkXError):
+         list(g.nbunch_iter([[2]]))
+
+      # re-raises if it is because of anything else
+      with self.assertRaises(TypeError):
+         list(g.nbunch_iter([WeirdClass(err=lambda: TypeError("asd"))]))
